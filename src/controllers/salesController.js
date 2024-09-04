@@ -5,21 +5,20 @@ const {updateInventoryOnSale} = require('../controllers/inventoryController')
 const { v4: uuidv4 } = require('uuid');
 // Record a new sale
 const createSalesTransaction = async (req, res) => {
-    const { customerName, customerEmail, customerPhone, products } = req.body;
+    const { phone, products } = req.body;
     
     const salesDate = new Date().toISOString().split('T')[0];
     try {
         // Check if customer exists
-        let customer = await Customer.findOne({ email: customerEmail });
+        let customer = await Customer.findOne({ phone: phone });
         
         // Create new customer if not found
         if (!customer) {
-            const customerId = uuidv4(); // Generate unique customer ID
+            const {name,email} = req.body
             customer = new Customer({
-                customerId,
-                name: customerName,
-                email: customerEmail,
-                phone: customerPhone
+               name,
+               email,
+               phone
             });
             await customer.save();
         }
@@ -29,8 +28,8 @@ const createSalesTransaction = async (req, res) => {
         let fullTotalAmount = 0;
 
         for (const product of products) {
-            const { productName, quantity, totalAmount } = product;
-
+            const { productName, quantity, salesPrice } = product;
+            const totalAmount = quantity*salesPrice
             // Fetch product ID by name
             const productData = await Product.findOne({ productName });
             if (!productData) {
@@ -46,7 +45,7 @@ const createSalesTransaction = async (req, res) => {
 
             // Accumulate total amount
             fullTotalAmount += totalAmount;
-            await updateInventoryOnSale(productData.productId,productData.productName,quantity,salesDate)
+            await updateInventoryOnSale(productData.productId,productData.productName,quantity)
         }
 
         // Create a sales transaction

@@ -1,12 +1,41 @@
 const mongoose = require('mongoose');
 
-const ManufacturingSchema = new mongoose.Schema({
-    manufacturingId: { type: String, required: true },
-    productId: { type: String, required: true },
-    quantity: { type: Number, required: true },
-    status: { type: String, required: true },
-    startDate: { type: Date, default: Date.now },
-    endDate: { type: Date, default: null }
+const manufacturingSchema = new mongoose.Schema({
+  manufacturingDate: {
+    type: Date,
+    default: Date.now
+  },
+  batchId: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  productId: {
+    type: String,
+    required: true
+  },
+  productName: {
+    type: String,
+    required: true
+  },
+  FGQuantity: {
+    type: Number,
+    required: true
+  },
+  RMQuantity: {
+    type: Number,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['Work in Progress', 'Completed'],
+    default: 'Work in Progress'
+  },
+  manufacturingEndDate : {
+    type: Date
+  }
 });
 
-module.exports = mongoose.model('Manufacturing', ManufacturingSchema);
+const Manufacturing = mongoose.model('Manufacturing', manufacturingSchema);
+
+module.exports = Manufacturing;

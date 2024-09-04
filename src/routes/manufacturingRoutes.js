@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { checkManufacturingPossibility } = require('../controllers/manufacturingController');
+const { checkManufacturingPossibility, startManufacturing, getManufacturingDetails, updateManufacturingStatus, getCompletedManufacturingDetails } = require('../controllers/manufacturingController');
 
 router.post('/check', checkManufacturingPossibility); // Endpoint for checking manufacturing possibility
+router.get('/', getManufacturingDetails); // Endpoint for checking manufacturing possibility
+router.get('/completed/:productName', getCompletedManufacturingDetails); // Endpoint for checking manufacturing possibility
+router.post('/start', startManufacturing); // Endpoint for checking manufacturing possibility
+router.put('/batch/:batchId', updateManufacturingStatus); // Endpoint for checking manufacturing possibility
 
 module.exports = router;

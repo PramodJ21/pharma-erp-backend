@@ -12,7 +12,7 @@ const createPurchase = async (req, res) => {
         // Fetch product details using the product name
         const productDetails = await Product.findOne({ productId });
         if (!productDetails) {
-            return res.status(400).json({ message: `Product with name "${productName}" not found` });
+            return res.status(400).json({ message: `Product with id "${productId}" not found` });
         }
 
         const { productName,productCode, purchasePrice } = productDetails;

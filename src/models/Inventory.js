@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const inventorySchema = new mongoose.Schema({
   inventoryId: { type: String, required: true },
+  index: { type: Number, required: true },
   purchaseTransactionId: { type: String, required: true },
   productId: { type: String, required: true },
   date: { type: Date, required: true },

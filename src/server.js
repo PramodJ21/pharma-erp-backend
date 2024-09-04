@@ -12,6 +12,7 @@ const purchaseRoutes = require('./routes/purchaseRoutes');
 const manufacturingRoutes = require('./routes/manufacturingRoutes');
 const recipeRoutes = require('./routes/recipeRoutes')
 const userRoutes = require('./routes/userRoutes')
+const customerRoutes = require('./routes/customerRoutes')
 const { verifyToken,authorizeRoles } = require('./middleware/authMiddleware');
 const {createInitialAdmin} = require('./controllers/intializeAdmin')
 //Connect to the database
@@ -31,12 +32,13 @@ app.use('/auth', authRoutes);
 //verify authToken
 // app.use(verifyToken)
 app.use('/sales', salesRoutes);
-app.use('/user', userRoutes);
+app.use('/users', userRoutes);
 app.use('/products', productRoutes);
 app.use('/inventory', inventoryRoutes);
 app.use('/purchase', purchaseRoutes);
 app.use('/manufacturing', manufacturingRoutes)
 app.use('/recipes',recipeRoutes)
+app.use('/customer',customerRoutes)
 // Start the server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

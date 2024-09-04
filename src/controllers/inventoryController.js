@@ -3,24 +3,97 @@ const Product = require('../models/Product');
 const product = require('../models/Product')
 // Get inventory data
 const getInventory = async (req, res) => {
+    const { startDate, endDate } = req.body;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'Start date and end date are required' });
+    }
+  
     try {
-        const inventory = await Inventory.find();
-        res.json(inventory);
+      // Parse the date strings to Date objects
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Adjust end date to include the full day
+      end.setHours(23, 59, 59, 999);
+      console.log(end)
+  
+      // Log the dates to verify
+      console.log('Start Date:', start);
+      console.log('End Date:', end);
+  
+      // Find inventory items within the date range
+      const inventoryItems = await Inventory.find({
+        date: { $gte: start, $lte: end }
+      });
+  
+      // Log the results to verify
+    //   console.log('Inventory Items:', inventoryItems);
+  
+      // Aggregate inventory items by productId to calculate totals
+      const inventorySummary = inventoryItems.reduce((acc, item) => {
+        const { productId, productName, status } = item;
+  
+        if (!acc[productId]) {
+          acc[productId] = {
+            productId,
+            productName,
+            totalPurchased: 0,
+            totalSold: 0,
+            openingBalance: 0,
+            closingBalance: 0
+          };
+        }
+  
+        // Update totals based on status
+        
+          acc[productId].totalPurchased += 1; // Increment purchased quantity
+        if (status === 'Sold') {
+          acc[productId].totalSold += 1; // Increment sold quantity
+        }
+  
+        return acc;
+      }, {});
+  
+      // Fetch opening balances by looking at the inventory before the start date
+      const openingBalances = await Inventory.find({
+        date: { $lt: start },
+        status: 'In Stock'
+      });
+  
+      openingBalances.forEach(item => {
+        const { productId } = item;
+        if (inventorySummary[productId]) {
+          inventorySummary[productId].openingBalance += 1;
+        }
+      });
+  
+      // Calculate closing balances
+      Object.keys(inventorySummary).forEach(productId => {
+        const { totalPurchased, totalSold, openingBalance } = inventorySummary[productId];
+        inventorySummary[productId].closingBalance = openingBalance + totalPurchased - totalSold;
+      });
+  
+      // Convert the summary object to an array
+      const inventorySummaryArray = Object.values(inventorySummary);
+  
+      res.json(inventorySummaryArray);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+      console.error('Error fetching inventory data:', error);
+      res.status(500).json({ message: 'Error fetching inventory data' });
     }
 };
 
 // Update inventory data by product ID
 const updateInventoryOnPurchase = async (productId, productName, quantity, purchaseTransactionId) => {
-    const today = new Date(); // Get today's date
+    const today = new Date().toISOString().split('T')[0]; // Get today's date
     
     const product = await Product.findOne({productId})
     const productCode = product.productCode
     // Fetch existing records to determine the last index used
-    const existingRecords = await Inventory.find({ productId }).sort({ inventoryId: -1 });
+    const existingRecords = await Inventory.find({ productId }).sort({ index: -1 });
     const lastRecord = existingRecords[0];
-    const lastIndex = lastRecord? parseInt(lastRecord.inventoryId.split('-')[2], 10) : 0; // Get the last index or default to 0
+    const lastIndex = lastRecord? lastRecord.index : 0; // Get the last index or default to 0
     console.log(lastRecord)
     // Create multiple inventory records
     const inventoryRecords = [];
@@ -31,6 +104,7 @@ const updateInventoryOnPurchase = async (productId, productName, quantity, purch
         inventoryRecords.push({
             inventoryId,
             productId,
+            index: newIndex,
             purchaseTransactionId,
             date: today,
             productName,
@@ -45,37 +119,32 @@ const updateInventoryOnPurchase = async (productId, productName, quantity, purch
 };
 
 
-const updateInventoryOnSale = async (productId,productName, quantity, salesDate) => {
-
-    // Find today's inventory record or create one
-    let inventoryRecord = await Inventory.findOne({ productId, date: salesDate });
-
-    if (!inventoryRecord) {
-        // Find the previous day's closing balance
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate()-1);
-        const prevInventoryRecord = await Inventory.findOne({ productId, date: yesterday.toISOString().split('T')[0] });
-
-        const openingBalance = prevInventoryRecord.closingBalance;
-
-        // Create a new record for today
-        inventoryRecord = new Inventory({
+const updateInventoryOnSale = async (productId, productName, quantity) => {
+    try {
+        // Fetch the inventory records for the product with status 'In Stock' and sort by date
+        const inventoryItems = await Inventory.find({
             productId,
-            productName,
-            date: salesDate,
-            openingBalance,
-            purchasedQuantity: 0,
-            soldQuantity: parseInt(quantity),
-            closingBalance: openingBalance - parseInt(quantity)
-        });
-    } else {
-        // Update existing record
-        inventoryRecord.soldQuantity += parseInt(quantity);
-        inventoryRecord.closingBalance = inventoryRecord.openingBalance + inventoryRecord.purchasedQuantity - inventoryRecord.soldQuantity;
-    }
+            status: 'In Stock'
+        }).sort({ date: 1 }).limit(quantity); // Limit to the quantity needed
 
-    await inventoryRecord.save();
+        if (inventoryItems.length < quantity) {
+            throw new Error('Not enough inventory items available.');
+        }
+
+        // Update the status of the fetched inventory items to 'Sold'
+        const updatePromises = inventoryItems.map(item =>
+            Inventory.findByIdAndUpdate(item._id, { status: 'Sold' }, { new: true })
+        );
+
+        await Promise.all(updatePromises);
+
+        console.log(`Updated ${quantity} inventory items for product ${productId} to 'Sold'.`);
+    } catch (error) {
+        console.error('Error updating inventory on sale:', error);
+        throw error;
+    }
 };
+
 
 
 module.exports = {
