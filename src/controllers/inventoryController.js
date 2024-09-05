@@ -117,6 +117,40 @@ const updateInventoryOnPurchase = async (productId, productName, quantity, purch
     // Insert all new inventory records in a single operation
     await Inventory.insertMany(inventoryRecords);
 };
+const updateInventoryOnManufacturing= async (productName, quantity, batchId) => {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date
+    
+    const product = await Product.findOne({productName})
+    console.log(productName)
+    const productCode = product.productCode
+    const productId = product.productId
+    // Fetch existing records to determine the last index used
+    const existingRecords = await Inventory.find({ productId }).sort({ index: -1 });
+    const lastRecord = existingRecords[0];
+    const lastIndex = lastRecord? lastRecord.index : 0; // Get the last index or default to 0
+    console.log(lastRecord)
+    // Create multiple inventory records
+    const inventoryRecords = [];
+    for (let i = 1; i <= quantity; i++) {
+        const newIndex = lastIndex + i; // Generate a unique index for each item
+        const inventoryId = `${productCode}-${newIndex}`;
+
+        inventoryRecords.push({
+            inventoryId,
+            productId,
+            index: newIndex,
+            batchId,
+            date: today,
+            productName,
+            quantity: 1, // Each record represents a single item
+            status: 'In Stock',
+            index: newIndex // Assign a unique index
+        });
+    }
+
+    // Insert all new inventory records in a single operation
+    await Inventory.insertMany(inventoryRecords);
+};
 
 
 const updateInventoryOnSale = async (productId, productName, quantity) => {
@@ -150,5 +184,6 @@ const updateInventoryOnSale = async (productId, productName, quantity) => {
 module.exports = {
     getInventory,
     updateInventoryOnPurchase,
-    updateInventoryOnSale
+    updateInventoryOnSale,
+    updateInventoryOnManufacturing
 };

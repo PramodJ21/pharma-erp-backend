@@ -4,6 +4,7 @@ const Product = require('../models/Product')
 const { v4: uuidv4 } = require('uuid');
 const WIP_Product = require('../models/wip_product')
 const Manufacturing = require('../models/Manufacturing');
+const {updateInventoryOnManufacturing} = require('../controllers/inventoryController')
 const checkManufacturingPossibility = async (req, res) => {
   try {
     const { productName, quantity } = req.body;
@@ -158,7 +159,12 @@ const getManufacturingDetails = async (req, res) => {
 const updateManufacturingStatus = async (req, res) => {
     const { batchId } = req.params;
     const { status } = req.body;
-
+    
+    if(status == "Completed"){
+        const product = await Manufacturing.findOne({batchId})
+        console.log(product.productName)
+        updateInventoryOnManufacturing(product.productName, product.FGQuantity, batchId) 
+    }
     try {
         // Update the status of the manufacturing record
         const updatedManufacturing = await Manufacturing.findOneAndUpdate(
