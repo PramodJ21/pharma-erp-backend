@@ -70,10 +70,8 @@ const createPurchase = async (req, res) => {
 // Get all purchases
 const getPurchases = async (req, res) => {
     try {
-      // Extract the start and end dates from the request body
-      const { startDate, endDate } = req.body;
+      const { startDate, endDate, productId } = req.body;
   
-      // Validate the provided dates
       const start = new Date(startDate);
       const end = new Date(endDate);
   
@@ -81,25 +79,57 @@ const getPurchases = async (req, res) => {
         return res.status(400).json({ message: 'Invalid start or end date' });
       }
   
-      // Fetch all purchases within the date range
-      const purchases = await Purchase.find({
+      // Fetch the productName associated with the provided productId
+      let productNameFilter = {};
+  
+      if (productId && productId !== 'all') {
+        const product = await Product.findOne({ productId }); // Assuming you have a productId field in your Product schema
+  
+        if (product) {
+          productNameFilter.productName = product.productName; // Use productName to filter purchases
+        } else {
+          return res.status(404).json({ message: 'Product not found' });
+        }
+      }
+  
+      // Construct query based on date range and optional productName filter
+      const query = {
         purchaseDate: {
           $gte: start,
           $lte: end,
         },
-      });
+        ...productNameFilter, // Include productName in query if provided
+      };
   
-      // Use Promise.all to handle asynchronous operations for each purchase
+      // Fetch purchases matching the query
+      const purchases = await Purchase.find(query);
+      const purchaseChartData = {};
+    for (const item of purchases) {
+      const purchaseDate = new Date(item.purchaseDate).toISOString().split('T')[0]; // Get the date part only
+
+      // Initialize the entry for this date if it doesn't exist
+      if (!purchaseChartData[purchaseDate]) {
+        purchaseChartData[purchaseDate] = 0;
+      }
+
+      // Accumulate the quantity
+      purchaseChartData[purchaseDate] += item.quantity;
+    }
+
+    // Convert aggregated data to an array format suitable for charting or further processing
+    const aggregatedPurchaseData = Object.entries(purchaseChartData).map(([date, quantity]) => ({
+      date,
+      quantity,
+    }));
       const purchaseData = await Promise.all(
         purchases.map(async (item) => {
-          // Fetch the product details for each purchased product
           const product = await Product.findOne({ productName: item.productName });
   
           return {
             purchaseTransactionId: item.purchaseTransactionId,
-            productName: product ? product.productName : 'Unknown', // Handle cases where the product is not found
+            productName: product ? product.productName : 'Unknown',
             quantity: item.quantity,
-            purchasePrice: product ? product.purchasePrice : 0, // Handle cases where the product is not found
+            purchasePrice: product ? product.purchasePrice : 0,
             totalAmount: item.totalAmount,
             supplier: item.supplier,
             purchaseDate: item.purchaseDate,
@@ -107,15 +137,13 @@ const getPurchases = async (req, res) => {
         })
       );
   
-      // Send the response with the aggregated purchase data
-      res.status(200).json(purchaseData);
+      res.status(200).json({purchaseData, aggregatedPurchaseData});
     } catch (error) {
       console.error('Error fetching purchases:', error);
       res.status(500).json({ message: 'An error occurred while fetching purchases' });
     }
   };
   
-
 // Get a purchase by ID
 const getPurchaseById = async (req, res) => {
     try {

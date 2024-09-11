@@ -21,63 +21,58 @@ const getInventory = async (req, res) => {
       // Log the dates to verify
       console.log('Start Date:', start);
       console.log('End Date:', end);
-  
-      // Find inventory items within the date range
-      const inventoryItems = await Inventory.find({
-        date: { $gte: start, $lte: end }
-      });
-  
-      // Log the results to verify
-    //   console.log('Inventory Items:', inventoryItems);
-  
-      // Aggregate inventory items by productId to calculate totals
-      const inventorySummary = inventoryItems.reduce((acc, item) => {
-        const { productId, productName, status } = item;
-  
-        if (!acc[productId]) {
-          acc[productId] = {
-            productId,
+      const products = await Product.find()
+      async function calculateBalances(products) {
+        const allProducts = []
+        for (const product of products) {
+          const { productName } = product;
+          const isFP = product.category == "Finished Product"
+          // Initialize the balances for each product
+          currentProduct = {
             productName,
-            totalPurchased: 0,
-            totalSold: 0,
             openingBalance: 0,
-            closingBalance: 0
-          };
+            closingBalance: 0,
+            purchased: 0,
+            sold: 0,
+          }
+      
+          // Fetch inventory items for each product
+          const inventoryItems = await Inventory.find({ productName });
+      
+          // Process each inventory item
+          inventoryItems.forEach((item) => {
+            if(item.date >= start && item.date <= end){
+              // Update purchased and sold quantities
+             
+                if(isFP !== true) currentProduct.purchased += 1;
+              
+               if (item.status === 'Sold' && item.updatedDate <= end) {
+                currentProduct.sold += 1;
+
+              }
+            }
+            // Update opening balance based on conditions
+            if (item.date < start && item.status === "In Stock") {
+              currentProduct.openingBalance += 1;
+            } else if (item.status !== "In Stock" && item.updatedDate >= start && item.date < start) {
+              currentProduct.openingBalance += 1;
+            }
+
+            //Update closing balance
+            if (item.date <= end && item.status === "In Stock") {
+              currentProduct.closingBalance += 1;
+            } else if (item.status !== "In Stock" && item.updatedDate > end) {
+              currentProduct.closingBalance += 1;
+            }
+          });
+          allProducts.push(currentProduct)
         }
-  
-        // Update totals based on status
-        
-          acc[productId].totalPurchased += 1; // Increment purchased quantity
-        if (status === 'Sold') {
-          acc[productId].totalSold += 1; // Increment sold quantity
-        }
-  
-        return acc;
-      }, {});
-  
-      // Fetch opening balances by looking at the inventory before the start date
-      const openingBalances = await Inventory.find({
-        date: { $lt: start },
-        status: 'In Stock'
-      });
-  
-      openingBalances.forEach(item => {
-        const { productId } = item;
-        if (inventorySummary[productId]) {
-          inventorySummary[productId].openingBalance += 1;
-        }
-      });
-  
-      // Calculate closing balances
-      Object.keys(inventorySummary).forEach(productId => {
-        const { totalPurchased, totalSold, openingBalance } = inventorySummary[productId];
-        inventorySummary[productId].closingBalance = openingBalance + totalPurchased - totalSold;
-      });
-  
-      // Convert the summary object to an array
-      const inventorySummaryArray = Object.values(inventorySummary);
-  
-      res.json(inventorySummaryArray);
+
+      res.json(allProducts)
+      }
+      calculateBalances(products)
+
+
     } catch (error) {
       console.error('Error fetching inventory data:', error);
       res.status(500).json({ message: 'Error fetching inventory data' });
@@ -167,7 +162,7 @@ const updateInventoryOnSale = async (productId, productName, quantity) => {
 
         // Update the status of the fetched inventory items to 'Sold'
         const updatePromises = inventoryItems.map(item =>
-            Inventory.findByIdAndUpdate(item._id, { status: 'Sold' }, { new: true })
+          Inventory.findByIdAndUpdate(item._id, { status: 'Sold', updatedDate: new Date().toISOString() }, { new: true })
         );
 
         await Promise.all(updatePromises);

@@ -125,7 +125,8 @@ const startManufacturing = async (req, res) => {
             ingredientsToUpdate.map(({ inventoryId }) =>
                 Inventory.findOneAndUpdate(
                     { inventoryId },
-                    { $set: { status: 'In Manufacturing' } }
+                    { $set: { status: 'In Manufacturing', updatedDate: new Date().toISOString() }
+                 }
                 )
             )
         );
@@ -159,7 +160,7 @@ const getManufacturingDetails = async (req, res) => {
 const updateManufacturingStatus = async (req, res) => {
     const { batchId } = req.params;
     const { status } = req.body;
-    
+    const manufacturingEndDate = new Date().toISOString()
     if(status == "Completed"){
         const product = await Manufacturing.findOne({batchId})
         console.log(product.productName)
@@ -169,7 +170,8 @@ const updateManufacturingStatus = async (req, res) => {
         // Update the status of the manufacturing record
         const updatedManufacturing = await Manufacturing.findOneAndUpdate(
             { batchId },
-            { $set: { status } },
+            { $set: { status },
+            manufacturingEndDate },
             { new: true } // Return the updated document
         );
 
@@ -260,6 +262,44 @@ const getCompletedManufacturingDetails = async (req, res) => {
     }
 };
 
+const getManufacturingChart = async (req,res) => {
+    const { productName } = req.body;
+
+  if (!productName) {
+    return res.status(400).json({ message: 'Product name is required' });
+  }
+
+  try {
+    // Aggregate total FGQuantity grouped by manufacturingEndDate for the given productName
+    const totalManufacturedByDate = await Manufacturing.aggregate([
+      { $match: { productName } }, // Match documents with the given productName
+      {
+        $group: {
+          _id: '$manufacturingEndDate', // Group by manufacturingEndDate
+          totalQuantity: { $sum: '$FGQuantity' }, // Sum the FGQuantity for each group
+        },
+      },
+      { $sort: { _id: 1 } }, // Sort the results by manufacturingEndDate (ascending order)
+    ]);
+
+    if (totalManufacturedByDate.length === 0) {
+      return res.status(404).json({ message: 'No manufacturing data found for the specified product' });
+    }
+
+    // Format the response data
+    const responseData = totalManufacturedByDate.map((entry) => ({
+      manufacturingEndDate: entry._id,
+      totalQuantity: entry.totalQuantity,
+    }));
+
+    // Send the aggregated data as a response
+    res.status(200).json(responseData);
+  } catch (error) {
+    console.error('Error fetching total manufactured quantity by date:', error);
+    res.status(500).json({ message: 'An error occurred while fetching the data' });
+  }
+}
+
 
 
 module.exports = {
@@ -267,5 +307,6 @@ module.exports = {
   startManufacturing,
   getManufacturingDetails,
   updateManufacturingStatus,
-  getCompletedManufacturingDetails
+  getCompletedManufacturingDetails,
+  getManufacturingChart
 };

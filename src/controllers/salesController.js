@@ -69,7 +69,7 @@ const createSalesTransaction = async (req, res) => {
 
 // Get all sales
 const getSalesTransactions = async (req, res) => {
-    const { startDate, endDate } = req.body; // Assume startDate and endDate are passed as query parameters
+    const { startDate, endDate, productId } = req.body;
 
     try {
         // Find sales transactions within the given date range
@@ -78,48 +78,72 @@ const getSalesTransactions = async (req, res) => {
                 $gte: new Date(startDate),
                 $lte: new Date(endDate)
             }
-        }) // Populate the customer details using the customerId
-
-        // Format the sales transaction data
-        const salesTransactionData = [];
-
-    const fetchSalesTransactionsData = async () => {
-    // Use Promise.all to wait for all customer and product fetching operations
-    await Promise.all(
-        salesTransactions.map(async (transaction) => {
-        const customer = await Customer.findById(transaction.customerId);
-        const customerName = customer ? customer.name : 'Unknown';
-            console.log(customer)
-        // Use Promise.all for fetching products for each transaction
-        const itemPromises = transaction.items.map(async (item) => {
-            const product = await Product.findOne({ productId: item.productId });
-
-            salesTransactionData.push({
-            transactionId: transaction.transactionId,
-            customerName,
-            productName: product ? product.productName : 'Unknown',
-            quantity: item.quantity,
-            totalAmount: item.totalAmount,
-            salesDate: transaction.salesDate,
-            });
         });
 
-        await Promise.all(itemPromises); // Wait for all items to be processed
-        })
-    );
-    };
+        // Initialize an array to store formatted sales transaction data
+        const salesTransactionData = [];
 
-    // Call the function and wait for all data to be fetched
-    await fetchSalesTransactionsData();
+        const fetchSalesTransactionsData = async () => {
+            // Use Promise.all to wait for all customer and product fetching operations
+            await Promise.all(
+                salesTransactions.map(async (transaction) => {
+                    const customer = await Customer.findById(transaction.customerId);
+                    const customerName = customer ? customer.name : 'Unknown';
 
-    // Send the response after all data has been fetched and processed
-    res.status(200).json(salesTransactionData);
-    }
+                    // Determine if all products should be included or filtered by productId
+                    const itemsToProcess = productId === 'all' 
+                        ? transaction.items  // Include all items if productId is 'all'
+                        : transaction.items.filter(item => item.productId === productId); // Otherwise, filter by specific productId
 
-     catch (error) {
+                    // Use Promise.all for fetching products for each transaction
+                    const itemPromises = itemsToProcess.map(async (item) => {
+                        const product = await Product.findOne({ productId: item.productId });
+
+                        salesTransactionData.push({
+                            transactionId: transaction.transactionId,
+                            customerName,
+                            productName: product ? product.productName : 'Unknown',
+                            quantity: item.quantity,
+                            totalAmount: item.totalAmount,
+                            salesDate: transaction.salesDate,
+                        });
+                    });
+
+                    await Promise.all(itemPromises); // Wait for all items to be processed
+                })
+            );
+        };
+
+        // Call the function and wait for all data to be fetched
+        await fetchSalesTransactionsData();
+
+        function aggregateSalesDataByDate(data) {
+            const aggregatedData = {};
+          
+            data.forEach((sale) => {
+              const date = new Date(sale.salesDate).toISOString().split('T')[0]; // Get only the date part
+              if (aggregatedData[date]) {
+                aggregatedData[date] += sale.quantity;
+              } else {
+                aggregatedData[date] = sale.quantity;
+              }
+            });
+          
+            // Convert to array format for charting
+            return Object.entries(aggregatedData).map(([date, quantity]) => ({ date, quantity }));
+          }
+
+        // Aggregate sales data by date
+        const aggregatedSalesData = aggregateSalesDataByDate(salesTransactionData);
+
+        // Send the response after all data has been fetched and processed
+        res.status(200).json({ salesTransactionData, aggregatedSalesData });
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
+
+
 
 
 // Get a sale by ID

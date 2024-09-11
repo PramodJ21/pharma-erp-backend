@@ -12,6 +12,7 @@ const verifyToken = (req, res, next) => {
         // Verify the token
         const decoded = jwt.verify(token.split(' ')[1], process.env.JWT_SECRET); // Token is usually sent as "Bearer <token>"
         req.user = decoded; // Attach the decoded user information to the request object
+        
         next();
     } catch (err) {
         res.status(401).json({ message: 'Invalid token.' });

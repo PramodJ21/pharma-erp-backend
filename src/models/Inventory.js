@@ -7,6 +7,7 @@ const inventorySchema = new mongoose.Schema({
   batchId: { type: String},
   productId: { type: String, required: true },
   date: { type: Date, required: true },
+  updatedDate: {type:Date, default: null},
   productName: { type: String, required: true },
   quantity: { type: Number, required: true },
   status: { type: String, enum: ['In Stock', 'In Manufacturing'], required: true },

@@ -30,7 +30,8 @@ app.use(express.json());
 app.use('/auth', authRoutes);
 
 //verify authToken
-// app.use(verifyToken)
+app.use(verifyToken)
+
 app.use('/sales', salesRoutes);
 app.use('/users', userRoutes);
 app.use('/products', productRoutes);
