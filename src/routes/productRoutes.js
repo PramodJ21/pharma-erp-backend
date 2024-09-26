@@ -6,7 +6,7 @@ const { createProduct, getProducts, getProductById, updateProduct, deleteProduct
 router.post('/', createProduct); // Create a new product
 router.get('/', getProducts); // Get all products
 router.get('/:id', getProductById); // Get a product by ID
-router.get('/category/:category', getProductByCategory); // Get a product by category
+router.post('/category', getProductByCategory); // Get a product by category
 router.put('/:id', updateProduct); // Update a product by ID
 router.delete('/:id', deleteProduct); // Delete a product by ID
 

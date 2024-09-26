@@ -43,11 +43,6 @@ const createUser = async (req, res) => {
     }
 };
 
-module.exports = {
-    createUser
-};
-
-
 // Get all users
 const getUsers = async (req, res) => {
     try {

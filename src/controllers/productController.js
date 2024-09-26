@@ -69,14 +69,19 @@ const getProductById = async (req, res) => {
 
 const getProductByCategory = async (req, res) => {
     try {
-        const {category} = req.params; // Extract category from the request body
+        const { category } = req.body; // Extract category array from the request body
 
-        // Use the correct query format to find products by category
-        const products = await Product.find({ category: category });
+        // Ensure category is an array before proceeding
+        if (!Array.isArray(category) || category.length === 0) {
+            return res.status(400).json({ message: 'Category must be a non-empty array' });
+        }
+
+        // Use $in operator to find products where the category field matches any of the values in the array
+        const products = await Product.find({ category: { $in: category } });
 
         // Check if no products were found
         if (!products || products.length === 0) {
-            return res.status(404).json({ message: 'No products found for this category' });
+            return res.status(404).json({ message: 'No products found for the specified categories' });
         }
 
         // Send the found products in the response
@@ -87,12 +92,21 @@ const getProductByCategory = async (req, res) => {
 };
 
 
+
 // Update a product by ID
 const updateProduct = async (req, res) => {
     try {
-        const product = await Product.deleteOne({productId:req.params.id});
-        if (!product) return res.status(404).json({ message: 'Product not found' });
-        res.json(product);
+        const updatedProduct = await Product.findOneAndUpdate(
+            { productId: req.params.id },
+            req.body,
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProduct) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        res.json(updatedProduct);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }

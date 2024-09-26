@@ -13,7 +13,7 @@ const manufacturingRoutes = require('./routes/manufacturingRoutes');
 const recipeRoutes = require('./routes/recipeRoutes')
 const userRoutes = require('./routes/userRoutes')
 const customerRoutes = require('./routes/customerRoutes')
-const { verifyToken,authorizeRoles } = require('./middleware/authMiddleware');
+const { verifyToken } = require('./middleware/authMiddleware');
 const {createInitialAdmin} = require('./controllers/intializeAdmin')
 //Connect to the database
 connectDB()
